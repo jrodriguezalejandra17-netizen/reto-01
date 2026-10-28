@@ -51,7 +51,7 @@ app.post('/api/chat', async (req, res) => {
         toolCalls.push({ name: 'proveedor_leer_solicitud', args: { caso }, result: leer });
 
         if (!leer.ok) {
-          return res.json({ reply: 'Error al leer la solicitud: ' + leer.error, toolCalls, needsConfirmation: false });
+          return res.json({ reply: 'Error al leer the solicitud: ' + leer.error, toolCalls, needsConfirmation: false });
         }
 
         const mapRes = await (proveedorTools as any).proveedor_mapear_campos.execute({ caso, campos: leer.data.campos });
@@ -133,21 +133,26 @@ app.post('/api/chat', async (req, res) => {
       }
     }
 
-    if (msg.toLowerCase().indexOf('si') >= 0 && msg.toLowerCase().indexOf('confirmo') >= 0) {
-      const casos = ['ec-corp-andina', 'co-industrias-delta', 'hn-agroexport-sula', 'pa-logistica-istmo'];
-      let casoUsado = null;
-      for (const c of casos) {
-        if (fs.existsSync(path.resolve('out', c, 'paquete'))) {
-          casoUsado = c;
-          break;
+    const lower = msg.toLowerCase();
+    if (lower.indexOf('confirmo') >= 0 && lower.indexOf('si') >= 0) {
+      try {
+        const casos = ['ec-corp-andina', 'co-industrias-delta', 'hn-agroexport-sula', 'pa-logistica-istmo'];
+        let casoUsado = null;
+        for (const c of casos) {
+          if (fs.existsSync(path.resolve('out', c, 'paquete'))) {
+            casoUsado = c;
+            break;
+          }
         }
+        if (casoUsado) {
+          const simRes = await (proveedorTools as any).proveedor_simular_envio.execute({ caso: casoUsado, confirmado: true });
+          const sim = JSON.parse(simRes);
+          return res.json({ reply: 'Simulación de envío completada.\n\nArchivo generado: out/' + casoUsado + '/ENVIO-SIMULADO.md\n\nNo se ha enviado nada a sistemas reales.', toolCalls: [{ name: 'proveedor_simular_envio', args: { caso: casoUsado, confirmado: true }, result: sim }], needsConfirmation: false });
+        }
+        return res.json({ reply: 'No hay un paquete listo para simular envío. Procesa un caso primero con el prompt del PRD.', toolCalls: [], needsConfirmation: false });
+      } catch (e: any) {
+        return res.json({ reply: 'Error al simular envío: ' + e.message, toolCalls: [], needsConfirmation: false });
       }
-      if (casoUsado) {
-        const simRes = await (proveedorTools as any).proveedor_simular_envio.execute({ caso: casoUsado, confirmado: true });
-        const sim = JSON.parse(simRes);
-        return res.json({ reply: 'Simulación de envío completada.\n\nArchivo generado: out/' + casoUsado + '/ENVIO-SIMULADO.md\n\nNo se ha enviado nada a sistemas reales.', toolCalls: [{ name: 'proveedor_simular_envio', args: { caso: casoUsado, confirmado: true }, result: sim }], needsConfirmation: false });
-      }
-      return res.json({ reply: 'No hay un paquete ready for firma. Procesa un caso primero.', toolCalls: [], needsConfirmation: false });
     }
 
     history.push({ role: 'user', content: msg });
