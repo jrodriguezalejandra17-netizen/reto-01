@@ -144,7 +144,7 @@ export const proveedor_generar_formulario = {
           const ws: any = {};
           Object.keys(wsData).forEach(k => { ws[k] = wsData[k]; });
           ws["!ref"] = "A1:C20";
-          XLSX.utils.book_append_sheet(wb, ws, hoja);
+          XLSX.utils.book_append_sheet(wb, ws, String(hoja));
         }
         
         const ruta: string = String(path.join(outDir, "formulario.xlsx"));
@@ -270,6 +270,7 @@ export const proveedor_simular_envio = {
     }
   }
 };
+
 
 
 
