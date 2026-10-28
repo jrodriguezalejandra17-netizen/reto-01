@@ -14,6 +14,7 @@ app.use(express.json());
 app.use(express.static('web'));
 
 const sessions = new Map<string, any[]>();
+const pendingConfirmations = new Map<string, string>();
 const llm = new GeminiAdapter();
 
 const tools = Object.entries(proveedorTools).map(([name, tool]: [string, any]) => ({
@@ -124,6 +125,7 @@ app.post('/api/chat', async (req, res) => {
 
         reply += '**¿Confirmas que deseas continuar con la simulación de envío?** Responde: "Sí, confirmo"';
 
+        pendingConfirmations.set(sessionId, caso);
         history.push({ role: 'user', content: msg });
         history.push({ role: 'assistant', content: reply });
 
@@ -133,26 +135,33 @@ app.post('/api/chat', async (req, res) => {
       }
     }
 
-    const lower = msg.toLowerCase();
-    if (lower.indexOf('confirmo') >= 0 && lower.indexOf('si') >= 0) {
+    const normalizedMessage = msg
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+    const confirmed = /^(si|confirmo|si[,!. ]+confirmo)\b/.test(normalizedMessage);
+    const casoPendiente = pendingConfirmations.get(sessionId);
+
+    if (confirmed && casoPendiente) {
       try {
-        const casos = ['ec-corp-andina', 'co-industrias-delta', 'hn-agroexport-sula', 'pa-logistica-istmo'];
-        let casoUsado = null;
-        for (const c of casos) {
-          if (fs.existsSync(path.resolve('out', c, 'paquete'))) {
-            casoUsado = c;
-            break;
-          }
+        const simRes = await (proveedorTools as any).proveedor_simular_envio.execute({ caso: casoPendiente, confirmado: true });
+        const sim = JSON.parse(simRes);
+        if (!sim.ok) {
+          return res.json({ reply: 'No fue posible registrar la simulación: ' + sim.error, toolCalls: [{ name: 'proveedor_simular_envio', args: { caso: casoPendiente, confirmado: true }, result: sim }], needsConfirmation: true });
         }
-        if (casoUsado) {
-          const simRes = await (proveedorTools as any).proveedor_simular_envio.execute({ caso: casoUsado, confirmado: true });
-          const sim = JSON.parse(simRes);
-          return res.json({ reply: 'Simulación de envío completada.\n\nArchivo generado: out/' + casoUsado + '/ENVIO-SIMULADO.md\n\nNo se ha enviado nada a sistemas reales.', toolCalls: [{ name: 'proveedor_simular_envio', args: { caso: casoUsado, confirmado: true }, result: sim }], needsConfirmation: false });
-        }
-        return res.json({ reply: 'No hay un paquete listo para simular envío. Procesa un caso primero con el prompt del PRD.', toolCalls: [], needsConfirmation: false });
+
+        pendingConfirmations.delete(sessionId);
+        history.push({ role: 'user', content: msg });
+        history.push({ role: 'assistant', content: 'Simulación de envío completada para ' + casoPendiente + '.' });
+        return res.json({ reply: 'Simulación de envío completada.\n\nArchivo generado: out/' + casoPendiente + '/ENVIO-SIMULADO.md\n\nNo se ha enviado nada a sistemas reales.', toolCalls: [{ name: 'proveedor_simular_envio', args: { caso: casoPendiente, confirmado: true }, result: sim }], needsConfirmation: false });
       } catch (e: any) {
-        return res.json({ reply: 'Error al simular envío: ' + e.message, toolCalls: [], needsConfirmation: false });
+        return res.json({ reply: 'Error al simular envío: ' + e.message, toolCalls: [], needsConfirmation: true });
       }
+    }
+
+    if (confirmed) {
+      return res.json({ reply: 'No hay una confirmación pendiente en esta sesión. Procesa un caso y confirma en el mismo chat.', toolCalls: [], needsConfirmation: false });
     }
 
     history.push({ role: 'user', content: msg });
