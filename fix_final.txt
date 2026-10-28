@@ -1,0 +1,14 @@
+﻿      const soportesArr: any[] = soportesExigidos as any[];
+      for (const tipo of soportesArr) {
+        const info = (indexSoportes as any[]).find((s: any) => s.tipo === tipo);
+        const infoAny: any = info;
+        if (infoAny && infoAny.archivo) {
+          const arch = String(infoAny.archivo);
+          const srcSoporte = path.join(FIXTURES_DIR, "repositorio", "soportes", arch);
+          if (fs.existsSync(srcSoporte)) { fs.copyFileSync(srcSoporte, path.join(paqueteDir, arch)); }
+          const vencido = infoAny.vigencia_hasta ? new Date(String(infoAny.vigencia_hasta)).getTime() < new Date().getTime() : false;
+          checklist.push({ tipo, archivo: arch, presente: true, vencido, vigencia_hasta: infoAny.vigencia_hasta });
+        } else {
+          checklist.push({ tipo, presente: false, vencido: false });
+        }
+      }

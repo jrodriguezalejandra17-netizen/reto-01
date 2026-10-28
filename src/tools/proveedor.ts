@@ -213,14 +213,18 @@ export const proveedor_armar_paquete = {
       
       const checklist: any[] = [];
       const hoy = new Date();
-      for (const tipo of soportesExigidos) {
-        const info = indexSoportes.find((s: any) => s.tipo === tipo);
-        if (info && fs.existsSync(path.join(FIXTURES_DIR, "repositorio", "soportes", info.archivo))) {
-          fs.copyFileSync(path.join(FIXTURES_DIR, "repositorio", "soportes", info.archivo), path.join(paqueteDir, info.archivo));
-          const vencido = info.vigencia_hasta ? new Date(info.vigencia_hasta) < hoy : false;
-          checklist.push({ tipo, archivo: info.archivo, presente: true, vencido, vigencia_hasta: info.vigencia_hasta });
+                        const soportesArr: any[] = Array.isArray(soportesExigidos) ? soportesExigidos : [];
+      for (const tipo of soportesArr) {
+        const info = (indexSoportes as any[]).find((s: any) => s.tipo === tipo);
+        const infoAny: any = info;
+        if (infoAny && infoAny.archivo) {
+          const arch = String(infoAny.archivo);
+          const srcSoporte = path.join(FIXTURES_DIR, "repositorio", "soportes", arch);
+          if (fs.existsSync(srcSoporte)) { fs.copyFileSync(srcSoporte, path.join(paqueteDir, arch)); }
+          const vencido = infoAny.vigencia_hasta ? new Date(String(infoAny.vigencia_hasta)).getTime() < Date.now() : false;
+          checklist.push({ tipo: tipo, archivo: arch, presente: true, vencido, vigencia_hasta: infoAny.vigencia_hasta });
         } else {
-          checklist.push({ tipo, presente: false, vencido: false });
+          checklist.push({ tipo: tipo, presente: false, vencido: false });
         }
       }
       
@@ -266,3 +270,15 @@ export const proveedor_simular_envio = {
     }
   }
 };
+
+
+
+
+
+
+
+
+
+
+
+

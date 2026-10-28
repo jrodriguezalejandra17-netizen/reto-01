@@ -1,4 +1,4 @@
-﻿import { GoogleGenerativeAI, FunctionDeclarationSchemaType } from '@google/generative-ai';
+﻿import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 import { LLMAdapter } from './adapter.js';
 
 function zodToGeminiSchema(zodSchema: any): any {
@@ -12,40 +12,40 @@ function zodToGeminiSchema(zodSchema: any): any {
     
     if (v._def.typeName === 'ZodString') {
       properties[key] = {
-        type: FunctionDeclarationSchemaType.STRING,
+        type: SchemaType.STRING,
         description: v._def.description || ''
       };
     } else if (v._def.typeName === 'ZodBoolean') {
       properties[key] = {
-        type: FunctionDeclarationSchemaType.BOOLEAN,
+        type: SchemaType.BOOLEAN,
         description: v._def.description || ''
       };
     } else if (v._def.typeName === 'ZodNumber') {
       properties[key] = {
-        type: FunctionDeclarationSchemaType.NUMBER,
+        type: SchemaType.NUMBER,
         description: v._def.description || ''
       };
     } else if (v._def.typeName === 'ZodArray') {
       properties[key] = {
-        type: FunctionDeclarationSchemaType.ARRAY,
+        type: SchemaType.ARRAY,
         description: v._def.description || '',
-        items: { type: FunctionDeclarationSchemaType.STRING }
+        items: { type: SchemaType.STRING }
       };
     } else if (v._def.typeName === 'ZodAny' || v._def.typeName === 'ZodObject') {
       properties[key] = {
-        type: FunctionDeclarationSchemaType.OBJECT,
+        type: SchemaType.OBJECT,
         description: v._def.description || ''
       };
     } else {
       properties[key] = {
-        type: FunctionDeclarationSchemaType.STRING,
+        type: SchemaType.STRING,
         description: v._def.description || ''
       };
     }
   }
 
   return {
-    type: FunctionDeclarationSchemaType.OBJECT,
+    type: SchemaType.OBJECT,
     properties,
     required
   };
@@ -61,7 +61,7 @@ export class GeminiAdapter implements LLMAdapter {
   }
 
   async enviar(mensajes: any[], herramientas: any[]): Promise<any> {
-    const systemMsg = mensajes.find(m => m.role === 'system');
+    const systemMsg = mensajes.find((m: any) => m.role === 'system');
     const history: any[] = [];
 
     for (const msg of mensajes) {
@@ -122,7 +122,7 @@ export class GeminiAdapter implements LLMAdapter {
     });
 
     const chat = model.startChat({ history });
-    const lastUserMsg = [...mensajes].reverse().find(m => m.role === 'user');
+    const lastUserMsg = [...mensajes].reverse().find((m: any) => m.role === 'user');
     
     let result;
     if (Array.isArray(lastUserMsg?.content) && lastUserMsg.content.some((c: any) => c.type === 'tool_result')) {
@@ -167,7 +167,11 @@ export class GeminiAdapter implements LLMAdapter {
     }
 
     if (content.length === 0) {
-      content.push({ type: 'text', text: response.text() || 'Sin respuesta' });
+      try {
+        content.push({ type: 'text', text: response.text() || 'Sin respuesta' });
+      } catch {
+        content.push({ type: 'text', text: 'Sin respuesta' });
+      }
     }
 
     return { content };

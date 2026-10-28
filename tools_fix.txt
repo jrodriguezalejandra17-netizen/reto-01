@@ -1,0 +1,10 @@
+﻿      for (const tipo of soportesExigidos) {
+        const info = indexSoportes.find((s: any) => s.tipo === tipo);
+        if (info && fs.existsSync(path.join(FIXTURES_DIR, "repositorio", "soportes", String(info.archivo)))) {
+          fs.copyFileSync(path.join(FIXTURES_DIR, "repositorio", "soportes", String(info.archivo)), path.join(paqueteDir, String(info.archivo)));
+          const vencido = info.vigencia_hasta ? new Date(String(info.vigencia_hasta)).getTime() < new Date().getTime() : false;
+          checklist.push({ tipo, archivo: info.archivo, presente: true, vencido, vigencia_hasta: info.vigencia_hasta });
+        } else {
+          checklist.push({ tipo, presente: false, vencido: false });
+        }
+      }

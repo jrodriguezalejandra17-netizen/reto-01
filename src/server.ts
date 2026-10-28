@@ -31,11 +31,12 @@ app.post('/api/chat', async (req, res) => {
   try {
     const { sessionId = 'default', message } = req.body;
     
-    if (!sessions.has(sessionId)) {
-      sessions.set(sessionId, [{ role: 'system', content: systemPrompt }]);
+    let history = sessions.get(sessionId);
+    if (!history) {
+      history = [{ role: 'system', content: systemPrompt }];
+      sessions.set(sessionId, history);
     }
     
-    const history = sessions.get(sessionId);
     history.push({ role: 'user', content: message });
     
     const toolCalls: any[] = [];
@@ -85,7 +86,7 @@ app.post('/api/chat', async (req, res) => {
       if (!hasToolUse) {
         const textContent = response.content.find((b: any) => b.type === 'text');
         const reply = textContent?.text || 'Sin respuesta';
-        if (reply.includes('¿Confirmas') || reply.includes('confirmación')) {
+        if (reply.includes('¿Confirmas') || reply.includes('confirmación') || reply.includes('confirma')) {
           needsConfirmation = true;
         }
         history.push({ role: 'assistant', content: reply });

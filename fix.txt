@@ -1,0 +1,7 @@
+﻿      if (info && fs.existsSync(path.join(FIXTURES_DIR, "repositorio", "soportes", info.archivo))) {
+        fs.copyFileSync(path.join(FIXTURES_DIR, "repositorio", "soportes", info.archivo), path.join(paqueteDir, info.archivo));
+        const vencido = info.vigencia_hasta ? new Date(info.vigencia_hasta).getTime() < hoy.getTime() : false;
+        checklist.push({ tipo, archivo: info.archivo, presente: true, vencido, vigencia_hasta: info.vigencia_hasta });
+      } else {
+        checklist.push({ tipo, presente: false, vencido: false });
+      }

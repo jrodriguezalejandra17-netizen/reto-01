@@ -38,8 +38,8 @@ for (const caso of casos) {
     if (pkg.ok) {
       console.log("   Listo para firma: " + (pkg.data.listo_para_firma ? "SI" : "NO"));
     }
-  } catch (e) {
-    console.log("ERROR:", e.message);
+  } catch (e: any) {
+    console.log("ERROR:", e?.message || e);
   }
 }
 
