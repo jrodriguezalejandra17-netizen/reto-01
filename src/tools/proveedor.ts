@@ -147,8 +147,8 @@ export const proveedor_generar_formulario = {
           XLSX.utils.book_append_sheet(wb, ws, hoja);
         }
         
-        const ruta = path.join(outDir, "formulario.xlsx");
-        XLSX.writeFile(wb, ruta);
+        const ruta: string = String(path.join(outDir, "formulario.xlsx"));
+        XLSX.writeFile(wb, String(ruta));
         return JSON.stringify({ ok: true, data: { ruta, formato: "xlsx" } });
       } else if (solicitud.formato === "pdf") {
         const { PDFDocument, StandardFonts } = await import("pdf-lib");
@@ -270,6 +270,8 @@ export const proveedor_simular_envio = {
     }
   }
 };
+
+
 
 
 
