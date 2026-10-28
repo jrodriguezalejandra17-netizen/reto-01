@@ -37,7 +37,7 @@ app.post('/api/chat', async (req, res) => {
       sessions.set(sessionId, history);
     }
     
-    history.push({ role: 'user', content: message });
+    history.push({ role: 'user', content: String(message || '') });
     
     const toolCalls: any[] = [];
     let iterations = 0;
@@ -46,51 +46,63 @@ app.post('/api/chat', async (req, res) => {
     
     while (iterations < maxIterations) {
       iterations++;
-      const response = await llm.enviar(history, tools);
-      
-      let hasToolUse = false;
-      for (const block of response.content) {
-        if (block.type === 'tool_use') {
-          hasToolUse = true;
-          const toolName = block.name;
-          const toolArgs = block.input;
-          
-          const tool = tools.find(t => t.name === toolName);
-          if (tool) {
-            try {
-              const result = await tool.execute(toolArgs);
-              const resultObj = JSON.parse(result);
-              toolCalls.push({ name: toolName, args: toolArgs, result: resultObj });
+      try {
+        const response = await llm.enviar(history, tools);
+        
+        let hasToolUse = false;
+        if (response && response.content) {
+          for (const block of response.content) {
+            if (block.type === 'tool_use') {
+              hasToolUse = true;
+              const toolName = block.name;
+              const toolArgs = block.input;
               
-              const logLine = JSON.stringify({ ts: new Date().toISOString(), herramienta: toolName, ok: resultObj.ok, resumen: JSON.stringify(resultObj).substring(0, 100) }) + '\n';
-              try { fs.appendFileSync(path.resolve('out/log.jsonl'), logLine); } catch {}
-              
-              history.push({
-                role: 'assistant',
-                content: [{ type: 'tool_use', id: block.id, name: toolName, input: toolArgs }]
-              });
-              history.push({
-                role: 'user',
-                content: [{ type: 'tool_result', tool_use_id: block.id, name: toolName, content: result }]
-              });
-            } catch (e: any) {
-              history.push({
-                role: 'user',
-                content: [{ type: 'tool_result', tool_use_id: block.id, name: toolName, content: JSON.stringify({ ok: false, error: e.message }) }]
-              });
+              const tool = tools.find(t => t.name === toolName);
+              if (tool) {
+                try {
+                  const result = await tool.execute(toolArgs || {});
+                  const resultObj = JSON.parse(result);
+                  toolCalls.push({ name: toolName, args: toolArgs, result: resultObj });
+                  
+                  try { fs.mkdirSync(path.resolve('out'), { recursive: true }); } catch {}
+                  const logLine = JSON.stringify({ ts: new Date().toISOString(), herramienta: toolName, ok: resultObj.ok, resumen: JSON.stringify(resultObj).substring(0, 100) }) + '\n';
+                  try { fs.appendFileSync(path.resolve('out/log.jsonl'), logLine); } catch {}
+                  
+                  history.push({
+                    role: 'assistant',
+                    content: [{ type: 'tool_use', id: block.id, name: toolName, input: toolArgs }]
+                  });
+                  history.push({
+                    role: 'user',
+                    content: [{ type: 'tool_result', tool_use_id: block.id, name: toolName, content: result }]
+                  });
+                } catch (e: any) {
+                  history.push({
+                    role: 'user',
+                    content: [{ type: 'tool_result', tool_use_id: block.id, name: toolName, content: JSON.stringify({ ok: false, error: e.message }) }]
+                  });
+                }
+              } else {
+                history.push({
+                  role: 'user',
+                  content: [{ type: 'tool_result', tool_use_id: 'unknown', name: toolName, content: JSON.stringify({ ok: false, error: 'Herramienta no encontrada' }) }]
+                });
+              }
             }
           }
         }
-      }
-      
-      if (!hasToolUse) {
-        const textContent = response.content.find((b: any) => b.type === 'text');
-        const reply = textContent?.text || 'Sin respuesta';
-        if (reply.includes('¿Confirmas') || reply.includes('confirmación') || reply.includes('confirma')) {
-          needsConfirmation = true;
+        
+        if (!hasToolUse) {
+          const textContent = response?.content?.find((b: any) => b.type === 'text');
+          const reply = textContent?.text || 'Sin respuesta';
+          if (reply.includes('¿Confirmas') || reply.toLowerCase().includes('confirmación') || reply.toLowerCase().includes('confirma')) {
+            needsConfirmation = true;
+          }
+          history.push({ role: 'assistant', content: reply });
+          return res.json({ reply, toolCalls, needsConfirmation });
         }
-        history.push({ role: 'assistant', content: reply });
-        return res.json({ reply, toolCalls, needsConfirmation });
+      } catch (e: any) {
+        return res.status(500).json({ error: 'Error LLM: ' + e.message });
       }
     }
     
